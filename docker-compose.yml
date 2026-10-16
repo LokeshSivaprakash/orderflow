@@ -1,0 +1,55 @@
+# Local full-stack environment:  docker compose up --build   ->  http://localhost:8080
+x-service-env: &service-env
+  JWT_SECRET: ${JWT_SECRET:-dev-only-secret-change-me}
+  INTERNAL_API_KEY: ${INTERNAL_API_KEY:-dev-internal-key}
+  CORS_ORIGIN: http://localhost:8080
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: orderflow
+      POSTGRES_PASSWORD: orderflow
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orderflow"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  auth:
+    build: ./services/auth
+    environment:
+      <<: *service-env
+      NODE_ENV: development
+      DATABASE_URL: postgres://orderflow:orderflow@postgres:5432/orderflow_auth
+      ADMIN_EMAIL: admin@orderflow.local
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:-ChangeMe123!}
+    depends_on: { postgres: { condition: service_healthy } }
+
+  inventory:
+    build: ./services/inventory
+    environment:
+      <<: *service-env
+      NODE_ENV: development
+      DATABASE_URL: postgres://orderflow:orderflow@postgres:5432/orderflow_inventory
+    depends_on: { postgres: { condition: service_healthy } }
+
+  orders:
+    build: ./services/orders
+    environment:
+      <<: *service-env
+      NODE_ENV: development
+      DATABASE_URL: postgres://orderflow:orderflow@postgres:5432/orderflow_orders
+      INVENTORY_URL: http://inventory:8080
+    depends_on: { postgres: { condition: service_healthy }, inventory: { condition: service_started } }
+
+  web:
+    build: ./frontend
+    ports: ["8080:8080"]
+    depends_on: [auth, inventory, orders]
+
+volumes:
+  pgdata:
