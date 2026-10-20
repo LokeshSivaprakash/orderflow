@@ -4,3 +4,5 @@ coverage/
 .env
 *.tfstate*
 .terraform/
+docs/RESUME_AND_INTERVIEW.md
+docs/RESUME_AND_INTERVIEW.md

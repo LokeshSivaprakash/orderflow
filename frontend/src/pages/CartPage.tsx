@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { errorMessage, useCreateCheckoutMutation, useCreateOrderMutation } from '../api';
 import Alert from '../components/Alert';
@@ -16,6 +17,19 @@ export default function CartPage() {
   const [createCheckout, checkoutState] = useCreateCheckoutMutation();
   const isLoading = orderState.isLoading || checkoutState.isLoading;
   const failure = orderState.isError ? orderState.error : undefined;
+  // True from the moment the order exists until the browser leaves for the payment page, so the cart
+  // being emptied is not shown to the user as "Your cart is empty".
+  const [redirecting, setRedirecting] = useState(false);
+
+  // If the user presses Back on the payment page, the browser may restore this page from its back/forward cache.
+  // Send them to Orders, where the unpaid order waits with a "Pay now" button (avoids placing a duplicate order).
+  useEffect(() => {
+    const onPageShow = (e: PageTransitionEvent) => {
+      if (e.persisted) navigate('/orders', { replace: true });
+    };
+    window.addEventListener('pageshow', onPageShow);
+    return () => window.removeEventListener('pageshow', onPageShow);
+  }, [navigate]);
 
   async function checkout() {
     let orderId: string;
@@ -25,6 +39,7 @@ export default function CartPage() {
     } catch {
       return; // error rendered below
     }
+    setRedirecting(true);
     dispatch(cleared());
     try {
       // 2) Hand over to the hosted payment page. Card details never touch our servers.
@@ -35,6 +50,14 @@ export default function CartPage() {
       navigate('/orders', { state: { paymentFailed: true } });
     }
   }
+
+  if (redirecting)
+    return (
+      <section aria-labelledby="cart-heading">
+        <h1 id="cart-heading">Your cart</h1>
+        <p role="status">Order placed. Redirecting you to the secure payment page…</p>
+      </section>
+    );
 
   if (!lines.length)
     return (
