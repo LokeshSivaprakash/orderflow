@@ -46,10 +46,23 @@ services:
       INVENTORY_URL: http://inventory:8080
     depends_on: { postgres: { condition: service_healthy }, inventory: { condition: service_started } }
 
+  payments:
+    build: ./services/payments
+    environment:
+      <<: *service-env
+      NODE_ENV: development
+      DATABASE_URL: postgres://orderflow:orderflow@postgres:5432/orderflow_payments
+      ORDERS_URL: http://orders:8080
+      PUBLIC_URL: http://localhost:8080
+      # Stripe TEST mode only. Put these in a .env file next to this compose file (see .env.example).
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:?Set STRIPE_SECRET_KEY (sk_test_...) in .env}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:?Set STRIPE_WEBHOOK_SECRET (whsec_...) in .env}
+    depends_on: { postgres: { condition: service_healthy }, orders: { condition: service_started } }
+
   web:
     build: ./frontend
     ports: ["8080:8080"]
-    depends_on: [auth, inventory, orders]
+    depends_on: [auth, inventory, orders, payments]
 
 volumes:
   pgdata:

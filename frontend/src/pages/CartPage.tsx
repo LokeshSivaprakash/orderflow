@@ -1,9 +1,10 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { errorMessage, useCreateOrderMutation } from '../api';
+import { errorMessage, useCreateCheckoutMutation, useCreateOrderMutation } from '../api';
 import Alert from '../components/Alert';
 import { cleared, quantitySet, removed, selectLines, selectTotalCents } from '../features/cart/cartSlice';
 import { formatCents } from '../format';
 import { useAppDispatch, useAppSelector, useTitle } from '../hooks';
+import { redirectTo } from '../redirect';
 
 export default function CartPage() {
   useTitle('Cart');
@@ -11,15 +12,27 @@ export default function CartPage() {
   const total = useAppSelector(selectTotalCents);
   const dispatch = useAppDispatch();
   const navigate = useNavigate();
-  const [createOrder, { isLoading, isError, error }] = useCreateOrderMutation();
+  const [createOrder, orderState] = useCreateOrderMutation();
+  const [createCheckout, checkoutState] = useCreateCheckoutMutation();
+  const isLoading = orderState.isLoading || checkoutState.isLoading;
+  const failure = orderState.isError ? orderState.error : undefined;
 
   async function checkout() {
+    let orderId: string;
     try {
-      await createOrder({ items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) }).unwrap();
-      dispatch(cleared());
-      navigate('/orders', { state: { placed: true } });
+      // 1) Reserve stock and create the order (PENDING_PAYMENT).
+      orderId = (await createOrder({ items: lines.map((l) => ({ productId: l.productId, quantity: l.quantity })) }).unwrap()).id;
     } catch {
-      /* rendered below */
+      return; // error rendered below
+    }
+    dispatch(cleared());
+    try {
+      // 2) Hand over to the hosted payment page. Card details never touch our servers.
+      const { url } = await createCheckout(orderId).unwrap();
+      redirectTo(url);
+    } catch {
+      // The order exists and its stock is held; let the user retry from the Orders page.
+      navigate('/orders', { state: { paymentFailed: true } });
     }
   }
 
@@ -67,8 +80,8 @@ export default function CartPage() {
           </tfoot>
         </table>
       </div>
-      {isError && <Alert>{errorMessage(error)}</Alert>}
-      <button type="button" className="btn" onClick={checkout} disabled={isLoading}>{isLoading ? 'Placing order…' : 'Place order'}</button>
+      {failure && <Alert>{errorMessage(failure)}</Alert>}
+      <button type="button" className="btn" onClick={checkout} disabled={isLoading}>{isLoading ? 'Redirecting to payment…' : 'Place order & pay'}</button>
     </section>
   );
 }

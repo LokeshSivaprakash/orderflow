@@ -4,8 +4,9 @@
 
 **OrderFlow - Cloud-native B2B order & inventory platform** | React, TypeScript, Node.js, PostgreSQL, Docker, Kubernetes, AWS (EKS, RDS, ECR), Terraform, GitLab CI/CD | [github.com/LokeshSivaprakash/orderflow]
 
-- Designed and built a full-stack order management platform: React/TypeScript SPA (Redux Toolkit, RTK Query, code-splitting, WCAG-minded accessible and responsive UI) backed by three Node.js microservices with database-per-service PostgreSQL.
+- Designed and built a full-stack order management platform: React/TypeScript SPA (Redux Toolkit, RTK Query, code-splitting, WCAG-minded accessible and responsive UI) backed by four Node.js microservices (auth, inventory, orders, payments) with database-per-service PostgreSQL.
 - Implemented a saga with compensating actions for cross-service order placement and row-level locking (`SELECT ... FOR UPDATE`) for stock reservation; validated with a concurrency test (25 parallel requests, zero overselling).
+- Integrated Stripe Checkout (test mode) with HMAC-verified, idempotent webhooks; handled payment/cancellation races with automatic refunds and released unpaid stock via checkout-session expiry.
 - Secured the system with JWT authentication, role-based authorization, zod request validation, rate limiting, Helmet headers, and Kubernetes NetworkPolicies isolating internal service endpoints.
 - Containerised services with multi-stage, non-root Docker builds; authored Kubernetes manifests (probes, HPA, resource limits, Kustomize) and Terraform for AWS (VPC, EKS, RDS, ECR, Secrets Manager).
 - Built a GitLab CI/CD pipeline with a parallel test matrix against ephemeral PostgreSQL, dependency auditing, Kaniko image builds to ECR, OIDC-based AWS authentication (no static keys), automated staging and gated production deploys.

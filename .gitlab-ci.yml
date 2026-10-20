@@ -35,7 +35,7 @@ test:service:
   <<: *node-cache
   parallel:
     matrix:
-      - SERVICE: [services/auth, services/inventory, services/orders]
+      - SERVICE: [services/auth, services/inventory, services/orders, services/payments]
   script:
     - cd $SERVICE
     - npm ci
@@ -110,6 +110,8 @@ build:images:
         CONTEXT: services/inventory
       - IMAGE: orders
         CONTEXT: services/orders
+      - IMAGE: payments
+        CONTEXT: services/payments
       - IMAGE: web
         CONTEXT: frontend
 
@@ -131,9 +133,9 @@ build:images:
     - aws eks update-kubeconfig --name "$EKS_CLUSTER_NAME" --region "$AWS_REGION"
   script:
     - cd deploy/k8s
-    - for i in auth inventory orders web; do kustomize edit set image orderflow/$i=$ECR_REGISTRY/orderflow/$i:$CI_COMMIT_SHORT_SHA; done
+    - for i in auth inventory orders payments web; do kustomize edit set image orderflow/$i=$ECR_REGISTRY/orderflow/$i:$CI_COMMIT_SHORT_SHA; done
     - kustomize build . | kubectl apply -f -
-    - for d in auth inventory orders web; do kubectl -n orderflow rollout status deploy/$d --timeout=180s; done
+    - for d in auth inventory orders payments web; do kubectl -n orderflow rollout status deploy/$d --timeout=180s; done
 
 deploy:staging:
   extends: .deploy

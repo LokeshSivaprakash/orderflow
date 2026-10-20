@@ -11,7 +11,7 @@ kind: NetworkPolicy
 metadata: {name: allow-web-to-apis, namespace: orderflow}
 spec:
   podSelector:
-    matchExpressions: [{key: app, operator: In, values: [auth, inventory, orders]}]
+    matchExpressions: [{key: app, operator: In, values: [auth, inventory, orders, payments]}]
   policyTypes: [Ingress]
   ingress:
     - from: [{podSelector: {matchLabels: {app: web}}}]
@@ -25,6 +25,16 @@ spec:
   policyTypes: [Ingress]
   ingress:
     - from: [{podSelector: {matchLabels: {app: orders}}}]
+      ports: [{port: 8080}]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: {name: allow-payments-to-orders, namespace: orderflow}
+spec:
+  podSelector: {matchLabels: {app: orders}}
+  policyTypes: [Ingress]
+  ingress:
+    - from: [{podSelector: {matchLabels: {app: payments}}}]
       ports: [{port: 8080}]
 ---
 apiVersion: networking.k8s.io/v1

@@ -27,7 +27,7 @@ module "vpc" {
 
 # ---------------- Container registry ----------------
 resource "aws_ecr_repository" "svc" {
-  for_each             = toset(["auth", "inventory", "orders", "web"])
+  for_each             = toset(["auth", "inventory", "orders", "payments", "web"])
   name                 = "orderflow/${each.key}"
   image_tag_mutability = "MUTABLE" # CI also pushes :latest
   image_scanning_configuration { scan_on_push = true }

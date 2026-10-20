@@ -62,6 +62,9 @@ export const api = createApi({
       query: (body) => ({ url: '/orders', method: 'POST', body }),
       invalidatesTags: ['Order', 'Product'],
     }),
+    createCheckout: b.mutation<{ url: string }, string>({
+      query: (orderId) => ({ url: '/payments/checkout', method: 'POST', body: { orderId } }),
+    }),
     cancelOrder: b.mutation<Order, string>({
       query: (id) => ({ url: `/orders/${id}/cancel`, method: 'POST' }),
       invalidatesTags: ['Order', 'Product'],
@@ -71,7 +74,7 @@ export const api = createApi({
 
 export const {
   useLoginMutation, useRegisterMutation, useProductsQuery, useSaveProductMutation,
-  useDeleteProductMutation, useOrdersQuery, useCreateOrderMutation, useCancelOrderMutation,
+  useDeleteProductMutation, useOrdersQuery, useCreateOrderMutation, useCreateCheckoutMutation, useCancelOrderMutation,
 } = api;
 
 /** Pull a human-readable message out of an RTK Query error. */

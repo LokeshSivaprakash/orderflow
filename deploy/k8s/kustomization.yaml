@@ -6,10 +6,12 @@ resources:
   - auth.yaml
   - inventory.yaml
   - orders.yaml
+  - payments.yaml
   - web.yaml
   - network-policy.yaml
 images:   # CI overrides these with `kustomize edit set image`
   - {name: orderflow/auth, newName: orderflow/auth, newTag: latest}
   - {name: orderflow/inventory, newName: orderflow/inventory, newTag: latest}
   - {name: orderflow/orders, newName: orderflow/orders, newTag: latest}
+  - {name: orderflow/payments, newName: orderflow/payments, newTag: latest}
   - {name: orderflow/web, newName: orderflow/web, newTag: latest}

@@ -23,6 +23,7 @@ spec:
             - {name: AUTH_HOST, value: auth}
             - {name: INVENTORY_HOST, value: inventory}
             - {name: ORDERS_HOST, value: orders}
+            - {name: PAYMENTS_HOST, value: payments}
           readinessProbe:
             httpGet: {path: /healthz, port: 8080}
             periodSeconds: 10

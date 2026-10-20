@@ -33,7 +33,7 @@ nav a.active { border-bottom-color: var(--primary); font-weight: 600; }
 .price { font-size: 1.2rem; font-weight: 700; margin: .25rem 0; }
 .stock { color: var(--ok); margin: 0 0 .75rem; } .stock.low { color: var(--warn); } .stock.out { color: var(--danger); }
 .pill { padding: .1rem .6rem; border-radius: 999px; font-size: .8rem; font-weight: 600; border: 1px solid currentColor; }
-.pill-on { color: var(--ok); } .pill-off { color: var(--muted); }
+.pill-on { color: var(--ok); } .pill-off { color: var(--muted); } .pill-warn { color: var(--warn); }
 
 .field { display: flex; flex-direction: column; gap: .25rem; margin-bottom: .9rem; }
 .form-grid { display: grid; gap: 0 1rem; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }

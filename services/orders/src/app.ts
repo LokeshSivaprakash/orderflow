@@ -5,6 +5,7 @@ import type { Pool } from 'pg';
 import { config } from './config';
 import type { InventoryClient } from './inventoryClient';
 import { errorHandler, notFound, requestLogger } from './lib/http';
+import { internalRouter } from './routes/internal';
 import { ordersRouter } from './routes/orders';
 
 export function createApp(pool: Pool, inventory: InventoryClient) {
@@ -20,6 +21,7 @@ export function createApp(pool: Pool, inventory: InventoryClient) {
     res.json({ status: 'ok', service: 'orders' });
   });
 
+  app.use('/orders/internal', internalRouter(pool, inventory)); // before /orders so JWT auth does not apply
   app.use('/orders', ordersRouter(pool, inventory));
   app.use(notFound);
   app.use(errorHandler);

@@ -37,6 +37,7 @@ const tok = (id: string, role: 'admin' | 'staff' = 'staff') => `Bearer ${jwt.sig
 const alice = tok('aaaaaaaa-0000-4000-8000-000000000001');
 const bob = tok('bbbbbbbb-0000-4000-8000-000000000002');
 const admin = tok('cccccccc-0000-4000-8000-000000000003', 'admin');
+const internal = { 'x-internal-key': config.internalKey };
 
 beforeAll(() => runMigrations(pool, path.join(__dirname, '..', 'migrations')));
 beforeEach(async () => {
@@ -56,7 +57,7 @@ describe('orders API', () => {
     const res = await request(app).post('/orders').set('Authorization', alice).send({ items: [{ productId: P1, quantity: 2 }, { productId: P2, quantity: 1 }] });
     expect(res.status).toBe(201);
     expect(res.body.totalCents).toBe(2 * 4999 + 1999);
-    expect(res.body.status).toBe('CONFIRMED');
+    expect(res.body.status).toBe('PENDING_PAYMENT');
     expect(res.body.items).toHaveLength(2);
     expect(catalog[P1].stock).toBe(8);
   });
@@ -94,7 +95,7 @@ describe('orders API', () => {
     expect((await request(app).get(`/orders/${mine.body.id}`).set('Authorization', admin)).status).toBe(200);
   });
 
-  it('cancels an order once, restoring stock', async () => {
+  it('cancels an unpaid order once, restoring stock', async () => {
     const o = await request(app).post('/orders').set('Authorization', alice).send({ items: [{ productId: P1, quantity: 4 }] });
     expect(catalog[P1].stock).toBe(6);
     const c1 = await request(app).post(`/orders/${o.body.id}/cancel`).set('Authorization', alice);
@@ -114,5 +115,69 @@ describe('orders API', () => {
     await request(app).post(`/orders/${first.body.items[0].id}/cancel`).set('Authorization', alice);
     const cancelled = await request(app).get('/orders?status=CANCELLED').set('Authorization', alice);
     expect(cancelled.body.total).toBe(1);
+  });
+});
+
+describe('payment lifecycle (internal API used by the payment service)', () => {
+  async function placeOrder(quantity = 2) {
+    const res = await request(app).post('/orders').set('Authorization', alice).send({ items: [{ productId: P1, quantity }] });
+    return res.body.id as string;
+  }
+
+  it('is protected by the internal key', async () => {
+    const id = await placeOrder();
+    expect((await request(app).get(`/orders/internal/${id}`)).status).toBe(403);
+    expect((await request(app).post(`/orders/internal/${id}/paid`)).status).toBe(403);
+  });
+
+  it('exposes order details to the payment service', async () => {
+    const id = await placeOrder();
+    const res = await request(app).get(`/orders/internal/${id}`).set(internal);
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({ id, status: 'PENDING_PAYMENT', userId: 'aaaaaaaa-0000-4000-8000-000000000001', totalCents: 2 * 4999 });
+  });
+
+  it('marks an order paid idempotently and sets paid_at', async () => {
+    const id = await placeOrder();
+    const a = await request(app).post(`/orders/internal/${id}/paid`).set(internal);
+    const b = await request(app).post(`/orders/internal/${id}/paid`).set(internal); // webhook retry
+    expect(a.body.status).toBe('PAID');
+    expect(b.status).toBe(200);
+    expect(b.body.status).toBe('PAID');
+    expect((await request(app).get(`/orders/${id}`).set('Authorization', alice)).body.paidAt).toBeTruthy();
+  });
+
+  it('refuses to mark a cancelled order as paid (payment service must refund)', async () => {
+    const id = await placeOrder();
+    await request(app).post(`/orders/${id}/cancel`).set('Authorization', alice);
+    const res = await request(app).post(`/orders/internal/${id}/paid`).set(internal);
+    expect(res.status).toBe(409);
+  });
+
+  it('paid orders cannot be cancelled by the user and keep their stock deducted', async () => {
+    const id = await placeOrder(3);
+    await request(app).post(`/orders/internal/${id}/paid`).set(internal);
+    const res = await request(app).post(`/orders/${id}/cancel`).set('Authorization', alice);
+    expect(res.status).toBe(409);
+    expect(catalog[P1].stock).toBe(7);
+  });
+
+  it('expire cancels an unpaid order and releases stock exactly once', async () => {
+    const id = await placeOrder(4);
+    expect(catalog[P1].stock).toBe(6);
+    const first = await request(app).post(`/orders/internal/${id}/expire`).set(internal);
+    const second = await request(app).post(`/orders/internal/${id}/expire`).set(internal);
+    expect(first.body.status).toBe('CANCELLED');
+    expect(second.status).toBe(200);
+    expect(catalog[P1].stock).toBe(10);
+    expect(released).toHaveLength(1);
+  });
+
+  it('expire does not touch an order that was already paid', async () => {
+    const id = await placeOrder();
+    await request(app).post(`/orders/internal/${id}/paid`).set(internal);
+    const res = await request(app).post(`/orders/internal/${id}/expire`).set(internal);
+    expect(res.body.status).toBe('PAID');
+    expect(released).toHaveLength(0);
   });
 });

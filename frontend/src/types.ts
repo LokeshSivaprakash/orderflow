@@ -29,8 +29,9 @@ export interface OrderItem {
 export interface Order {
   id: string;
   userEmail: string;
-  status: 'CONFIRMED' | 'CANCELLED';
+  status: 'PENDING_PAYMENT' | 'PAID' | 'CANCELLED';
   totalCents: number;
   createdAt: string;
+  paidAt: string | null;
   items: OrderItem[];
 }

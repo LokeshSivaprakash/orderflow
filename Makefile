@@ -1,6 +1,6 @@
 .PHONY: test up down
 test:
-	@for s in auth inventory orders; do (cd services/$$s && npm ci && npm test) || exit 1; done
+	@for s in auth inventory orders payments; do (cd services/$$s && npm ci && npm test) || exit 1; done
 	cd frontend && npm ci && npm test
 up:
 	docker compose up --build
