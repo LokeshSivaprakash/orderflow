@@ -61,6 +61,19 @@ test:frontend:
     paths: [frontend/dist]
     expire_in: 1 day
 
+# ---------- infrastructure ----------
+# Static checks only: no AWS credentials needed and nothing is created.
+test:terraform:
+  stage: test
+  image:
+    name: hashicorp/terraform:1.9.8
+    entrypoint: [""]
+  script:
+    - cd deploy/terraform
+    - terraform fmt -check -diff -recursive
+    - terraform init -backend=false -input=false
+    - terraform validate
+
 # ---------- build ----------
 # Short-lived ECR login (OIDC -> STS), handed to the Kaniko jobs as a 1-hour artifact.
 build:ecr-login:
