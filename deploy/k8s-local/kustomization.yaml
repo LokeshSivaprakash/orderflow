@@ -1,0 +1,35 @@
+# Local overlay: reuses ../k8s unchanged and swaps the AWS-specific parts.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: orderflow
+resources:
+  - ../k8s
+  - postgres.yaml
+configMapGenerator:
+  - name: postgres-init
+    files: [init.sql]
+generatorOptions: {disableNameSuffixHash: true}
+patches:
+  # Images are built locally, never pulled from a registry.
+  - target: {kind: Deployment, labelSelector: "app in (auth,inventory,orders,payments,web)"}
+    patch: |-
+      - {op: add, path: /spec/template/spec/containers/0/imagePullPolicy, value: Never}
+  # One replica each is plenty on a laptop.
+  - target: {kind: Deployment, labelSelector: "app in (auth,inventory,orders,payments,web)"}
+    patch: |-
+      - {op: replace, path: /spec/replicas, value: 1}
+  # Seed an admin user (the AWS manifests deliberately don't).
+  - target: {kind: Deployment, name: auth}
+    patch: |-
+      - {op: add, path: /spec/template/spec/containers/0/env/-, value: {name: ADMIN_EMAIL, value: admin@orderflow.local}}
+      - {op: add, path: /spec/template/spec/containers/0/env/-, value: {name: ADMIN_PASSWORD, value: ChangeMe123!}}
+  # No ALB controller locally.
+  - target: {kind: Ingress, name: web}
+    patch: |-
+      $patch: delete
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata: {name: web}
+  - target: {kind: ConfigMap, name: orderflow-config}
+    patch: |-
+      - {op: replace, path: /data/public-origin, value: "http://localhost:8080"}
